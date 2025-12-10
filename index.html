@@ -525,11 +525,11 @@
         <!-- 酒馆地址和欢迎语 -->
         <div id="bar-info" style="display:none; width:90%; max-width:400px; margin:15px auto; padding:15px; background:rgba(255,255,255,0.05); border-radius:10px; text-align:center;">
             <div style="font-size:0.85rem; color:#aaa; line-height:1.6; margin-bottom:10px;">
-                🏪 敭开酒馆<br>
-                <span style="font-size:0.75rem;">拱墟区乐堤港B区近丽水路单向空间1楼</span>
+                🏪 敞开酒馆<br>
+                <span style="font-size:0.75rem;">拱墅区乐堤港B区近丽水路单向空间1楼</span>
             </div>
             <div id="welcome-msg" style="display:none; font-size:0.9rem; color:var(--accent-color); line-height:1.8; padding:10px; background:rgba(243,156,18,0.1); border-radius:8px; border:1px dashed var(--accent-color);">
-                欢迎来敭开酒馆，结账的时候出示此截图，<br>你会获得一个夸夸哦！👍！
+                欢迎来敞开酒馆，结账的时候出示此截图，<br>你会获得一个夸夸哦！👍！
             </div>
         </div>
 
@@ -788,6 +788,9 @@
         if (GameState.round >= GameState.maxRounds) {
             handleFinalResult();
         } else {
+            // 前两轮：隐藏酒馆信息和分享按钮
+            document.getElementById('bar-info').style.display = 'none';
+            document.getElementById('share-btn').style.display = 'none';
             switchScreen('result');
         }
     }
@@ -814,7 +817,7 @@
         ui.el.restartBtn.style.display = 'inline-block';
         document.getElementById('share-btn').style.display = 'inline-block';
         
-        // 显示酒馆信息
+        // 只在最后一轮显示酒馆信息
         document.getElementById('bar-info').style.display = 'block';
         
         // 如果分数>=70，显示欢迎语
