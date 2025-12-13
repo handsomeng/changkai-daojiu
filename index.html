@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>敞开倒酒大比拼 | Offenbar Challenge</title>
+    <style>
+        :root {
+            --bg-color: #111;
+            --text-color: #fff;
+            --accent-color: #f39c12; /* 啤酒黄 */
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --success-color: #2ecc71;
+            --fail-color: #e74c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            /* 禁止移动端默认触摸行为（如双击缩放、滚动） */
+            touch-action: none; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* 使用 dvh 适配移动端动态地址栏 */
+            height: 100vh;
+            height: 100dvh; 
+            overflow: hidden;
+        }
+
+        /* --- UI 容器 --- */
+        .container {
+            width: 100%;
+            max-width: 480px; /* 限制平板/桌面端最大宽度 */
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            padding: 20px;
+        }
+
+        /* --- Logo 区域 --- */
+        .header {
+            text-align: center;
+            margin-top: 5vh; /* 往下挪 */
+            margin-bottom: 1vh; /* 弹性间距 */
+            flex-shrink: 0;
+            position: relative;
+            z-index: 50;
+        }
+
+        .logo-img {
+            width: 100px; /* 缩小logo */
+            height: auto;
+            display: block;
+            margin: 0 auto 5px;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+        }
+
+        .game-title {
+            font-size: 2rem;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: var(--accent-color);
+            text-shadow: 0 0 20px rgba(243, 156, 18, 0.5);
+        }
+
+        /* 结果页的header样式调整 */
+        .container.result-page .header .game-title {
+            display: none;
+        }
+
+        .container.result-page .header .logo-img {
+            width: 60px;
+        }
+
+        .container.result-page .header {
+            margin-top: 2vh;
+            margin-bottom: 0.5vh;
+        }
+
+        /* --- 屏幕管理 --- */
+        .screen {
+            flex-grow: 1;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* 默认垂直居中 */
+            width: 100%;
+            transition: opacity 0.3s ease;
+            position: relative;
+        }
+        
+        .screen#screen-game {
+            justify-content: flex-end; /* 游戏界面底部对齐 */
+            padding-bottom: 20px;
+        }
+
+        .screen#screen-result {
+            justify-content: flex-start; /* 结果页从顶部开始 */
+            overflow-y: auto; /* 支持滚动 */
+            -webkit-overflow-scrolling: touch;
+            padding-top: 10px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* --- 开始/结算通用元素 --- */
+        input[type="text"] {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #fff;
+            color: #fff;
+            font-size: 1.5rem;
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 30px;
+            width: 80%;
+            outline: none;
+            border-radius: 0; /* iOS fix */
+        }
+
+        .btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 50px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+            margin: 10px 0;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: #ddd;
+        }
+
+        /* --- 游戏主界面布局 --- */
+        .game-info {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #888;
+            z-index: 50;
+            pointer-events: none; /* 防止遮挡点击 */
+        }
+
+        /* --- 视觉区域：酒瓶与水流 (核心修改) --- */
+        .visual-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%; /* 占据上半部分 */
+            pointer-events: none;
+        }
+
+        /* 对齐核心逻辑：
+           1. .pour-point 是屏幕绝对中心的一个点，作为倒酒的源头。
+           2. .stream 从这个点向下延伸。
+           3. .bottle-container 定位在这个点上，旋转中心也是这个点。
+        */
+        .pour-point {
+            position: absolute;
+            top: 12vh; /* 倒酒点的高度位置 */
+            left: 50%;
+            width: 0;
+            height: 0;
+            /* debug: border: 2px solid red; */
+        }
+
+        .stream {
+            position: absolute;
+            top: 0; /* 从 pour-point 开始 */
+            left: 50%;
+            transform: translateX(-50%); /* 严格居中 */
+            width: 6px;
+            height: 0;
+            background: var(--accent-color);
+            transition: height 0.1s ease-out;
+            z-index: 5;
+            opacity: 0.9;
+            box-shadow: 0 0 5px var(--accent-color);
+        }
+        
+        .stream.active {
+            /* 从瓶口到杯子内部的固定距离 */
+            /* 缩短长度，让水流停在杯子内部，不超出底部 */
+            height: calc(53vh - 250px);
+        }
+
+        .bottle-container {
+            position: absolute;
+            top: 0;
+            left: 0; /* 锚定在 pour-point */
+            width: 0;
+            height: 0;
+            /* 关键：旋转中心设为自身原点(即pour-point) */
+            transform-origin: 0 0; 
+            transform: rotate(0deg);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        .bottle-container.pouring {
+            /* 旋转容器，让瓶身倒下来 */
+            transform: rotate(-60deg);
+        }
+
+        /* 瓶身：相对于锚点偏移，使其看起来是拿在手里的 */
+        .bottle-body {
+            position: absolute;
+            /* 初始状态：瓶嘴对准原点，瓶身向右上方延伸 */
+            top: -15px; 
+            left: 10px; 
+            width: 70px;
+            height: 160px;
+            background: #222;
+            border-radius: 20px 20px 5px 5px; /* 倒过来的形状 */
+            border: 2px solid #555;
+            box-shadow: inset 5px 0 10px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 瓶颈 */
+        .bottle-body::before {
+            content: '';
+            position: absolute;
+            top: -20px; /* 瓶嘴部分 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 25px;
+            height: 25px;
+            background: #333;
+            border: 2px solid #555;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+        }
+
+        .bottle-label {
+            transform: rotate(90deg);
+            color: rgba(255,255,255,0.15);
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        /* --- 固定酒杯 --- */
+        .glass-area {
+            position: absolute;
+            bottom: 35vh; /* 固定杯子底部位置，留出足够空间给按钮区域 */
+            left: 0;
+            width: 100%;
+            height: 180px; /* 固定高度，正好容纳杯子 */
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 20;
+        }
+
+        .glass {
+            position: relative;
+            border: 3px solid var(--glass-border);
+            border-top: none;
+            overflow: hidden;
+            transform: translateZ(0);
+            background: rgba(255, 255, 255, 0.05);
+            /* 确保杯子在水流正下方 */
+            margin: 0 auto; 
+        }
+
+        /* 固定杯型 - 只用一种大杯子 */
+        .glass.beer {
+            width: 100px;
+            height: 180px;
+            border-radius: 5px 5px 15px 15px;
+        }
+
+        /* 液体 */
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            /* 移除过渡效果以实现更灵敏的控制感，或者保留极短的过渡 */
+            transition: height 0.05s linear; 
+        }
+
+        .glass.beer .liquid { background-color: #f39c12; box-shadow: 0 0 10px #f39c12 inset; }
+
+        .foam {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 0;
+            background: rgba(255,255,255,0.8);
+            transition: height 0.1s;
+        }
+        .glass.beer .liquid .foam { height: 8px; }
+
+        /* 目标刻度线 */
+        .target-zone {
+            position: absolute;
+            left: -5px;
+            right: -5px;
+            border-top: 2px dashed rgba(255,255,255,0.5);
+            border-bottom: 2px dashed rgba(255,255,255,0.5);
+            pointer-events: none;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* 增加一个中间完美线 */
+        .target-zone::after {
+            content: '';
+            width: 100%;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .target-label {
+            position: absolute;
+            right: -55px;
+            color: #fff;
+            font-size: 0.7rem;
+            text-shadow: 0 0 2px #000;
+            opacity: 0.8;
+        }
+
+        /* --- 操作按钮区域 --- */
+        .controls-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 28vh; /* 增加高度，避免和杯子重叠 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .instruction-text {
+            text-align: center; 
+            margin-bottom: 15px; 
+            font-size: 0.85rem; 
+            color: #666;
+            letter-spacing: 1px;
+        }
+
+        .pour-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff 30%, #bbb 100%);
+            border: 4px solid #333;
+            color: #111;
+            font-weight: 900;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s, box-shadow 0.2s;
+            position: relative;
+            z-index: 100; /* 最高层级，确保可点击 */
+        }
+
+        .pour-btn:active {
+            transform: scale(0.92);
+            background: radial-gradient(circle, #ddd 30%, #999 100%);
+            box-shadow: 0 0 5px rgba(255,255,255,0.1);
+        }
+
+        .pour-btn.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+
+        /* --- 结算弹窗优化 --- */
+        .score-display {
+            font-size: 5rem;
+            font-weight: bold;
+            margin: 10px 0;
+            line-height: 1;
+            text-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+
+        .score-msg {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #aaa;
+            height: 1.5em; /* 占位防止跳动 */
+        }
+
+        /* 排行榜紧凑化 */
+        .leaderboard-container {
+            width: 100%;
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .leaderboard-box {
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 15px;
+            width: 100%;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .rank-num { color: var(--accent-color); font-weight: bold; width: 25px;}
+
+        /* Shake 动画 */
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+            40%, 60% { transform: translate3d(3px, 0, 0); }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <img src="72e984c31dea060cfa8da9baf7732030.jpg" alt="Offenbar Logo" class="logo-img">
+        <div class="game-title">敞开倒酒大比拼</div>
+    </div>
+
+    <!-- 1. 开始页面 -->
+    <div id="screen-start" class="screen active">
+        <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; width:100%; align-items:center;">
+            <p style="margin-bottom: 20px; color: #aaa; text-align: center; line-height: 1.6;">
+                长按倒酒，松开停止。<br>这是对你手感的极致考验。
+            </p>
+            <p style="margin-bottom: 25px; color: var(--accent-color); text-align: center; font-size: 0.95rem; font-weight: bold; text-shadow: 0 0 10px rgba(243, 156, 18, 0.5); line-height: 1.6;">
+                12.14 - 12.16 期间<br>
+                平均分超过 80<br>
+                免费送一杯精酿 shot 哦！
+            </p>
+            <input type="text" id="username" placeholder="请输入你的名字" maxlength="8">
+            <button class="btn" onclick="startGame()">开始挑战</button>
+        </div>
+        <div style="margin-bottom: 20px; font-size: 0.8rem; color: #555;">
+            最高纪录: <span id="top-player">-</span>
+        </div>
+    </div>
+
+    <!-- 2. 游戏主页面 -->
+    <div id="screen-game" class="screen">
+        <div class="game-info">
+            <span style="margin-left: 10px;">挑战者：<span id="game-user"></span></span>
+            <span style="margin-right: 10px;">Round <span id="round-indicator">1/3</span></span>
+        </div>
+
+        <!-- 视觉表现区域：瓶子与水流 -->
+        <div class="visual-area">
+            <!-- 所有的动作都基于这个绝对中心点 -->
+            <div class="pour-point">
+                <div class="bottle-container" id="bottle">
+                    <div class="bottle-body">
+                        <div class="bottle-label">OFFENBAR</div>
+                    </div>
+                </div>
+                <div class="stream" id="stream"></div>
+            </div>
+        </div>
+
+        <!-- 接酒区域 -->
+        <div class="glass-area">
+            <div id="glass" class="glass beer">
+                <div class="target-zone" id="target-zone">
+                    <div class="target-label">PERFECT</div>
+                </div>
+                <div class="liquid" id="liquid">
+                    <div class="foam"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操控区域 -->
+        <div class="controls-area">
+            <div class="instruction-text">按住下方按钮倒酒</div>
+            <div class="pour-btn" id="pour-btn">
+                长按倒酒
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 结算页面 -->
+    <div id="screen-result" class="screen">
+        <h2 id="result-title" style="margin: 10px 0; font-size: 1.5rem;">Result</h2>
+        <div class="score-display" id="round-score">0</div>
+        <div class="score-msg" id="score-msg">...</div>
+        
+        <div id="final-stats" class="leaderboard-container" style="display: none;">
+            <div class="leaderboard-box">
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px; color:#888; font-size:0.8rem;">
+                    <span>ROUND</span><span>SCORE</span>
+                </div>
+                <div class="rank-item"><span>第一杯</span><span id="score-r1">-</span></div>
+                <div class="rank-item"><span>第二杯</span><span id="score-r2">-</span></div>
+                <div class="rank-item"><span>第三杯</span><span id="score-r3">-</span></div>
+                <div class="rank-item" style="margin-top: 5px; font-weight: bold; border-top: 1px solid #555; padding-top:10px;">
+                    <span style="color:#fff;">最终平均分</span><span id="score-avg" style="color:var(--accent-color); font-size:1.2rem;">-</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 酒馆地址和欢迎语 -->
+        <div id="bar-info" style="display:none; width:90%; max-width:400px; margin:15px auto; padding:15px; background:rgba(255,255,255,0.05); border-radius:10px; text-align:center;">
+            <div style="font-size:0.85rem; color:#aaa; line-height:1.6; margin-bottom:10px;">
+                🏪 敞开酒馆<br>
+                <span style="font-size:0.75rem;">拱墅区乐堤港B区近丽水路单向空间1楼</span>
+            </div>
+            <div id="welcome-msg" style="display:none; font-size:0.9rem; color:var(--accent-color); line-height:1.8; padding:10px; background:rgba(243,156,18,0.1); border-radius:8px; border:1px dashed var(--accent-color);">
+                可以截图保存此页面，前往敞开酒馆兑换一杯精酿 shot 🍺
+            </div>
+            <div id="retry-msg" style="display:none; font-size:0.9rem; color:#aaa; line-height:1.8; padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px dashed rgba(255,255,255,0.2);">
+                再试一次，争取达到80分以上吧！💪
+            </div>
+        </div>
+
+        <div style="flex-shrink: 0; padding: 20px 0 40px 0; text-align: center;">
+            <button class="btn" id="next-btn" onclick="nextRound()">下一杯</button>
+            <button class="btn" id="restart-btn" onclick="resetGame()" style="display:none; background:var(--accent-color); color:#fff;">再来一局</button>
+            <button class="btn" id="share-btn" onclick="guideToShare()" style="display:none; background:#fff; color:#000; margin-top:10px;">📤 发给朋友试试</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const GameState = {
+        user: '',
+        round: 1,
+        maxRounds: 3,
+        scores: [],
+        isPouring: false,
+        liquidHeight: 0,
+        fillSpeed: 0.8,
+        glassType: 'beer',
+        targetMin: 0,
+        targetMax: 0,
+        animationFrame: null
+    };
+
+    const ui = {
+        screens: {
+            start: document.getElementById('screen-start'),
+            game: document.getElementById('screen-game'),
+            result: document.getElementById('screen-result')
+        },
+        el: {
+            username: document.getElementById('username'),
+            gameUser: document.getElementById('game-user'),
+            roundInd: document.getElementById('round-indicator'),
+            glass: document.getElementById('glass'),
+            liquid: document.getElementById('liquid'),
+            targetZone: document.getElementById('target-zone'),
+            pourBtn: document.getElementById('pour-btn'),
+            bottle: document.getElementById('bottle'),
+            stream: document.getElementById('stream'),
+            resultTitle: document.getElementById('result-title'),
+            roundScore: document.getElementById('round-score'),
+            scoreMsg: document.getElementById('score-msg'),
+            finalStats: document.getElementById('final-stats'),
+            nextBtn: document.getElementById('next-btn'),
+            restartBtn: document.getElementById('restart-btn'),
+            leaderboardList: document.getElementById('leaderboard-list'),
+            topPlayer: document.getElementById('top-player')
+        }
+    };
+
+    function init() {
+        loadLeaderboard();
+        updateTopPlayerDisplay();
+        
+        const btn = ui.el.pourBtn;
+
+        // 统一处理开始倒酒
+        const startAction = (e) => {
+            // 阻止默认行为（如鼠标选择或触摸滚动）
+            if (e.cancelable) e.preventDefault();
+            
+            if(btn.classList.contains('disabled')) return;
+            if (!GameState.isPouring) {
+                GameState.isPouring = true;
+                btn.style.transform = 'scale(0.9)'; // 视觉反馈
+                ui.el.bottle.classList.add('pouring');
+                
+                // 稍微延迟出水，配合瓶子旋转动画
+                setTimeout(() => {
+                    if(GameState.isPouring) {
+                        ui.el.stream.classList.add('active'); // 显示固定长度的水流
+                        gameLoop();
+                    }
+                }, 100);
+            }
+        };
+
+        // 统一处理停止倒酒
+        const stopAction = (e) => {
+            if (e.cancelable) e.preventDefault();
+            
+            if (GameState.isPouring) {
+                GameState.isPouring = false;
+                btn.style.transform = 'scale(1)';
+                ui.el.bottle.classList.remove('pouring');
+                ui.el.stream.classList.remove('active'); // 隐藏水流
+                cancelAnimationFrame(GameState.animationFrame);
+                calculateScore();
+            }
+        };
+
+        // 绑定事件，涵盖移动端和PC端
+        btn.addEventListener('touchstart', startAction, {passive: false});
+        btn.addEventListener('mousedown', startAction);
+
+        btn.addEventListener('touchend', stopAction);
+        btn.addEventListener('mouseup', stopAction);
+        btn.addEventListener('mouseleave', stopAction);
+        
+        // 防止iOS双击缩放
+        document.addEventListener('dblclick', function(event) {
+            event.preventDefault();
+        }, { passive: false });
+    }
+
+    function switchScreen(name) {
+        Object.values(ui.screens).forEach(s => s.classList.remove('active'));
+        ui.screens[name].classList.add('active');
+        
+        // 控制结果页的样式
+        const container = document.querySelector('.container');
+        if (name === 'result') {
+            container.classList.add('result-page');
+        } else {
+            container.classList.remove('result-page');
+        }
+    }
+
+    function startGame() {
+        const name = ui.el.username.value.trim();
+        if (!name) {
+            // 使用自定义样式的提示，而不是alert，体验更好
+            ui.el.username.placeholder = "请先输入名字!";
+            ui.el.username.focus();
+            return;
+        }
+        GameState.user = name;
+        GameState.round = 1;
+        GameState.scores = [];
+        ui.el.gameUser.innerText = name;
+        setupRound();
+    }
+
+    function setupRound() {
+        GameState.liquidHeight = 0;
+        GameState.isPouring = false;
+        ui.el.liquid.style.height = '0%';
+        ui.el.stream.classList.remove('active'); // 隐藏水流
+        ui.el.pourBtn.classList.remove('disabled');
+        ui.el.roundInd.innerText = `${GameState.round}/${GameState.maxRounds}`;
+        
+        // 固定使用beer杯
+        GameState.glassType = 'beer';
+        ui.el.glass.className = `glass beer`;
+        
+        // 固定目标区域位置
+        const zoneSize = 12; 
+        const targetBottom = 70; // 固定在70%的位置
+        
+        GameState.targetMin = targetBottom;
+        GameState.targetMax = targetBottom + zoneSize;
+        
+        ui.el.targetZone.style.bottom = `${targetBottom}%`;
+        ui.el.targetZone.style.height = `${zoneSize}%`;
+        ui.el.targetZone.style.borderColor = 'rgba(255,255,255,0.5)';
+
+        switchScreen('game');
+    }
+
+    function gameLoop() {
+        if (!GameState.isPouring) return;
+
+        // 随着时间推移速度微增，增加紧张感
+        let currentSpeed = GameState.fillSpeed;
+        if (GameState.liquidHeight > 50) currentSpeed *= 1.1;
+        if (GameState.liquidHeight > 80) currentSpeed *= 1.2;
+
+        GameState.liquidHeight += currentSpeed;
+        
+        if (GameState.liquidHeight >= 100) {
+            GameState.liquidHeight = 100;
+            ui.el.liquid.style.height = '100%';
+            // 强制停止
+            const event = new MouseEvent('mouseup');
+            ui.el.pourBtn.dispatchEvent(event);
+            // 额外触发逻辑停止以防万一
+            if(GameState.isPouring) {
+                 GameState.isPouring = false;
+                 ui.el.bottle.classList.remove('pouring');
+                 ui.el.stream.classList.remove('active');
+                 calculateScore();
+            }
+        } else {
+            ui.el.liquid.style.height = `${GameState.liquidHeight}%`;
+            GameState.animationFrame = requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function calculateScore() {
+        ui.el.pourBtn.classList.add('disabled');
+        
+        setTimeout(() => {
+            const h = GameState.liquidHeight;
+            const min = GameState.targetMin;
+            const max = GameState.targetMax;
+            const center = min + (max - min) / 2;
+            
+            let score = 0;
+            let msg = "";
+            let color = "#fff";
+
+            if (h < min) {
+                score = Math.max(0, Math.floor((h/min) * 30)); // 给点同情分
+                msg = "太少了，这不够喝！";
+                color = "var(--fail-color)";
+            } else if (h > max) {
+                 // 溢出逻辑：只要超过线就算0分? 
+                 // 为了游戏体验，稍微超过一点点扣分，超过太多0分
+                 const over = h - max;
+                 if (over > 5) {
+                    score = 0;
+                    msg = "溢出来了！太浪费了！";
+                    color = "var(--fail-color)";
+                 } else {
+                    score = 40;
+                    msg = "稍微有点多了...";
+                    color = "#e67e22";
+                 }
+            } else {
+                // 区间内
+                const diff = Math.abs(h - center);
+                const halfZone = (max - min) / 2;
+                const percentage = 1 - (diff / halfZone); // 0 to 1
+                score = 50 + Math.floor(percentage * 50); // 50-100分
+
+                if (score >= 98) {
+                    score = 100;
+                    msg = "PERFECT POUR!";
+                    color = "var(--success-color)";
+                    ui.el.glass.classList.add('shake');
+                } else if (score >= 85) {
+                    msg = "Excellent!";
+                    color = "#f1c40f";
+                } else {
+                    msg = "Good job.";
+                    color = "#fff";
+                }
+            }
+
+            GameState.scores.push(score);
+            ui.el.targetZone.style.borderColor = color;
+            
+            setTimeout(() => {
+                showResult(score, msg, color);
+            }, 600);
+
+        }, 400);
+    }
+
+    function showResult(score, msg, color) {
+        ui.el.roundScore.innerText = score;
+        ui.el.roundScore.style.color = color;
+        ui.el.scoreMsg.innerText = msg;
+        ui.el.scoreMsg.style.color = color === '#fff' ? '#aaa' : color;
+        ui.el.resultTitle.innerText = `Round ${GameState.round}`;
+        
+        ui.el.finalStats.style.display = 'none';
+        ui.el.nextBtn.style.display = 'inline-block';
+        ui.el.restartBtn.style.display = 'none';
+
+        if (GameState.round >= GameState.maxRounds) {
+            handleFinalResult();
+        } else {
+            // 前两轮：隐藏酒馆信息和分享按钮
+            document.getElementById('bar-info').style.display = 'none';
+            document.getElementById('share-btn').style.display = 'none';
+            switchScreen('result');
+        }
+    }
+
+    function handleFinalResult() {
+        switchScreen('result');
+        ui.el.resultTitle.innerText = "";
+        ui.el.nextBtn.style.display = 'none';
+        
+        const total = GameState.scores.reduce((a, b) => a + b, 0);
+        const avg = Math.round(total / GameState.maxRounds);
+        
+        ui.el.roundScore.innerText = avg;
+        ui.el.roundScore.style.color = 'var(--accent-color)';
+        ui.el.scoreMsg.innerText = "最终平均得分";
+        
+        document.getElementById('score-r1').innerText = GameState.scores[0];
+        document.getElementById('score-r2').innerText = GameState.scores[1];
+        document.getElementById('score-r3').innerText = GameState.scores[2];
+        document.getElementById('score-avg').innerText = avg;
+        
+        ui.el.finalStats.style.display = 'flex';
+        ui.el.finalStats.style.flexDirection = 'column';
+        ui.el.restartBtn.style.display = 'inline-block';
+        document.getElementById('share-btn').style.display = 'inline-block';
+        
+        // 只在最后一轮显示酒馆信息
+        document.getElementById('bar-info').style.display = 'block';
+        
+        // 如果分数>=80，显示兑换提示；否则显示再试一次提示
+        if (avg >= 80) {
+            document.getElementById('welcome-msg').style.display = 'block';
+            document.getElementById('retry-msg').style.display = 'none';
+        } else {
+            document.getElementById('welcome-msg').style.display = 'none';
+            document.getElementById('retry-msg').style.display = 'block';
+        }
+        
+        saveScore(GameState.user, avg);
+    }
+
+    function nextRound() {
+        GameState.round++;
+        setupRound();
+    }
+
+    function resetGame() {
+        switchScreen('start');
+        ui.el.glass.classList.remove('shake');
+        ui.el.username.value = '';
+        ui.el.username.placeholder = '请输入你的名字';
+    }
+
+    function loadLeaderboard() {
+        try {
+            const data = localStorage.getItem('offenbar_scores_v2'); // v2 key
+            return data ? JSON.parse(data) : [];
+        } catch(e) { return []; }
+    }
+
+    function saveScore(name, score) {
+        let list = loadLeaderboard();
+        list.push({ name: name, score: score, date: Date.now() });
+        list.sort((a, b) => b.score - a.score);
+        list = list.slice(0, 10); // 增加到前10名
+        localStorage.setItem('offenbar_scores_v2', JSON.stringify(list));
+    }
+
+    function guideToShare() {
+        // 显示提示，引导用户点击右上角分享按钮
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 150px;
+            background: rgba(243, 156, 18, 0.95);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0 0 0 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 9999;
+            animation: pulse 0.5s ease-in-out infinite alternate;
+        `;
+        overlay.innerHTML = `
+            <div style="font-size:3rem; margin-bottom:10px;">☝️</div>
+            <div>点击右上角</div>
+            <div style="font-size:0.9rem; margin-top:5px;">分享给朋友</div>
+        `;
+        document.body.appendChild(overlay);
+        
+        // 添加脉冲动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                from { transform: scale(1); }
+                to { transform: scale(1.05); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 3秒后自动消失
+        setTimeout(() => {
+            overlay.style.transition = 'opacity 0.5s';
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 500);
+        }, 3000);
+    }
+
+    function updateTopPlayerDisplay() {
+        const list = loadLeaderboard();
+        if (list.length > 0) {
+            ui.el.topPlayer.innerText = `${list[0].name} (${list[0].score})`;
+        }
+    }
+
+    init();
+
+</script>
+</body>
+</html>
