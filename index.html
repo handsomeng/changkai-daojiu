@@ -448,14 +448,19 @@
         
         .rank-item {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             padding: 6px 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            gap: 20px; /* 文字和分数之间的间距 */
+        }
+        
+        .rank-item span:first-child {
+            text-align: center;
         }
         
         .rank-item span:last-child {
-            text-align: right;
+            text-align: center;
             min-width: 60px; /* 确保分数有足够空间 */
         }
         
@@ -548,7 +553,7 @@
         
         <div id="final-stats" class="leaderboard-container" style="display: none; width: 100%; flex-shrink: 0;">
             <div class="leaderboard-box">
-                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px; color:#888; font-size:0.8rem;">
+                <div style="display:flex; justify-content:center; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px; color:#888; font-size:0.8rem; gap:20px;">
                     <span>ROUND</span><span>SCORE</span>
                 </div>
                 <div class="rank-item"><span>第一杯</span><span id="score-r1">-</span></div>
