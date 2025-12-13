@@ -112,9 +112,20 @@
             -webkit-overflow-scrolling: touch;
             padding-top: 10px;
             padding-bottom: 20px; /* 增加底部padding，确保按钮可见 */
-            align-items: center; /* 确保子元素居中 */
+            align-items: stretch; /* 确保子元素宽度填满 */
             min-height: 0; /* 允许flex子元素缩小，启用滚动 */
             max-height: 100%; /* 限制最大高度，确保可以滚动 */
+        }
+        
+        /* 确保结果页中的内容居中 */
+        .screen#screen-result > * {
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .screen#screen-result .leaderboard-container {
+            display: flex;
+            justify-content: center;
         }
 
         .screen.active {
