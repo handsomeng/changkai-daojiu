@@ -112,20 +112,7 @@
             -webkit-overflow-scrolling: touch;
             padding-top: 10px;
             padding-bottom: 20px; /* 增加底部padding，确保按钮可见 */
-            align-items: stretch; /* 确保子元素宽度填满 */
-            min-height: 0; /* 允许flex子元素缩小，启用滚动 */
-            max-height: 100%; /* 限制最大高度，确保可以滚动 */
-        }
-        
-        /* 确保结果页中的内容居中 */
-        .screen#screen-result > * {
-            width: 100%;
-            max-width: 100%;
-        }
-        
-        .screen#screen-result .leaderboard-container {
-            display: flex;
-            justify-content: center;
+            align-items: center; /* 内容居中 */
         }
 
         .screen.active {
@@ -447,10 +434,10 @@
         .leaderboard-container {
             width: 100%;
             flex-shrink: 0; /* 防止被压缩 */
+            overflow-y: auto;
             margin-bottom: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center; /* 确保内容居中 */
+            -webkit-overflow-scrolling: touch;
+            min-height: 0; /* 允许flex子元素缩小 */
         }
 
         .leaderboard-box {
@@ -461,25 +448,13 @@
             max-width: 400px; /* 限制最大宽度，居中显示 */
             margin: 0 auto 15px auto; /* 居中 */
             font-size: 0.9rem;
-            text-align: center; /* 整体内容居中 */
         }
         
         .rank-item {
             display: flex;
-            justify-content: center;
-            align-items: center;
+            justify-content: space-between;
             padding: 6px 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            gap: 30px; /* 文字和分数之间的间距 */
-        }
-        
-        .rank-item span {
-            text-align: center;
-            flex: 0 0 auto; /* 不自动伸缩，保持内容宽度 */
-        }
-        
-        .rank-item span:last-child {
-            min-width: 60px; /* 确保分数有足够空间 */
         }
         
         .rank-num { color: var(--accent-color); font-weight: bold; width: 25px;}
@@ -571,8 +546,8 @@
         
         <div id="final-stats" class="leaderboard-container" style="display: none; width: 100%; flex-shrink: 0;">
             <div class="leaderboard-box">
-                <div style="display:flex; justify-content:center; align-items:center; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px; color:#888; font-size:0.8rem; gap:30px;">
-                    <span style="text-align:center;">ROUND</span><span style="text-align:center;">SCORE</span>
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px; color:#888; font-size:0.8rem;">
+                    <span>ROUND</span><span>SCORE</span>
                 </div>
                 <div class="rank-item"><span>第一杯</span><span id="score-r1">-</span></div>
                 <div class="rank-item"><span>第二杯</span><span id="score-r2">-</span></div>
