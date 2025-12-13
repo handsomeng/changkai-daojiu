@@ -111,6 +111,7 @@
             overflow-y: auto; /* 支持滚动 */
             -webkit-overflow-scrolling: touch;
             padding-top: 10px;
+            align-items: stretch; /* 确保子元素宽度填满 */
         }
 
         .screen.active {
@@ -425,10 +426,11 @@
         /* 排行榜紧凑化 */
         .leaderboard-container {
             width: 100%;
-            flex-grow: 1;
+            flex-shrink: 0; /* 防止被压缩 */
             overflow-y: auto;
             margin-bottom: 10px;
             -webkit-overflow-scrolling: touch;
+            min-height: 0; /* 允许flex子元素缩小 */
         }
 
         .leaderboard-box {
@@ -436,7 +438,8 @@
             border-radius: 8px;
             padding: 15px;
             width: 100%;
-            margin-bottom: 15px;
+            max-width: 400px; /* 限制最大宽度，居中显示 */
+            margin: 0 auto 15px auto; /* 居中 */
             font-size: 0.9rem;
         }
         
@@ -534,7 +537,7 @@
         <div class="score-display" id="round-score">0</div>
         <div class="score-msg" id="score-msg">...</div>
         
-        <div id="final-stats" class="leaderboard-container" style="display: none;">
+        <div id="final-stats" class="leaderboard-container" style="display: none; width: 100%; flex-shrink: 0;">
             <div class="leaderboard-box">
                 <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px; color:#888; font-size:0.8rem;">
                     <span>ROUND</span><span>SCORE</span>
@@ -819,7 +822,10 @@
         ui.el.scoreMsg.style.color = color === '#fff' ? '#aaa' : color;
         ui.el.resultTitle.innerText = `Round ${GameState.round}`;
         
-        ui.el.finalStats.style.display = 'none';
+        // 前两轮隐藏final-stats，最后一轮会在handleFinalResult中显示
+        if (GameState.round < GameState.maxRounds) {
+            ui.el.finalStats.style.display = 'none';
+        }
         ui.el.nextBtn.style.display = 'inline-block';
         ui.el.restartBtn.style.display = 'none';
 
